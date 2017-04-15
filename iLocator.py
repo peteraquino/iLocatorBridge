@@ -77,13 +77,16 @@ def configSectionMap(gConfig, section):
 
 def getDeviceCoordinates(gRequester, deviceId):
     locationDictionary = None
-
+    
+    StatusItem = gConfigurationOH.get('ohitem_status')
     while locationDictionary is None:
         try:
             locationDictionary = (gRequester.devices[deviceId].location())
         except Exception, e:
             print('Exception! Please check the log')
             logger.error('Could not get device coordinates. Retrying!: %s' % (e, ))
+            #If item name provided, post error to OpenHAB status item...
+            if StatusItem: postUpdate(StatusItem, e)
             
             #If item name provided, send the next poll time to OpenHAB based on the config RetryInterval value...
             RetryPollTimeItem = gConfigurationOH.get('ohitem_nextpolltime')
@@ -94,6 +97,9 @@ def getDeviceCoordinates(gRequester, deviceId):
             time.sleep(int(gConfigurationOH['retryinterval']))
         pass
 
+    #If item name provided, post 'Active' to OpenHAB status item...
+    if StatusItem: postUpdate(StatusItem, 'Active')
+    
     return float(locationDictionary['latitude']), float(locationDictionary['longitude'])
 
 
