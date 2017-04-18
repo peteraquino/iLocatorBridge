@@ -79,16 +79,18 @@ def getDeviceCoordinates(gRequester, deviceId):
     locationDictionary = None
     
     StatusItem = gConfigurationOH.get('ohitem_status')
+    CoordinatesItem = gConfigurationOH.get('ohitem_coordinates')
+    AccuracyItem = gConfigurationOH.get('ohitem_accuracy')
     while locationDictionary is None:
         try:
             locationDictionary = (gRequester.devices[deviceId].location())
         except Exception, e:
             print('Exception! Please check the log')
             logger.error('Could not get device coordinates. Retrying!: %s' % (e, ))
-            #If item name provided, post error to OpenHAB status item...
+            #If configured, post error to OpenHAB status item...
             if StatusItem: postUpdate(StatusItem, e)
             
-            #If item name provided, send the next poll time to OpenHAB based on the config RetryInterval value...
+            #If configured, send the next poll time to OpenHAB based on the config RetryInterval value...
             RetryPollTimeItem = gConfigurationOH.get('ohitem_nextpolltime')
             if RetryPollTimeItem:
                 RetryPollTime = datetime.now() + timedelta(seconds=int(gConfigurationOH['retryinterval']))
@@ -97,8 +99,12 @@ def getDeviceCoordinates(gRequester, deviceId):
             time.sleep(int(gConfigurationOH['retryinterval']))
         pass
 
-    #If item name provided, post 'Active' to OpenHAB status item...
+    #If configured, post 'Active' to OpenHAB status item...
     if StatusItem: postUpdate(StatusItem, 'Active')
+    #If configured, post lat/ling coordinates to OpenHAB...
+    if CoordinatesItem: postUpdate(CoordinatesItem, str(locationDictionary['latitude']) + ', ' + str(locationDictionary['longitude']))
+    #If configured, post accuracy to OpenHAB...
+    if AccuracyItem: postUpdate(AccuracyItem, str(locationDictionary['horizontalAccuracy']))
     
     return float(locationDictionary['latitude']), float(locationDictionary['longitude'])
 
