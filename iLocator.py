@@ -84,11 +84,12 @@ def getDeviceCoordinates(gRequester, deviceId):
     while locationDictionary is None:
         try:
             locationDictionary = (gRequester.devices[deviceId].location())
+        
         except Exception, e:
             print('Exception! Please check the log')
             logger.error('Could not get device coordinates. Retrying!: %s' % (e, ))
             #If configured, post error to OpenHAB status item...
-            if StatusItem: postUpdate(StatusItem, e)
+            if StatusItem: postUpdate(StatusItem, str(e))
             
             #If configured, send the next poll time to OpenHAB based on the config RetryInterval value...
             RetryPollTimeItem = gConfigurationOH.get('ohitem_nextpolltime')
@@ -102,15 +103,15 @@ def getDeviceCoordinates(gRequester, deviceId):
     #If configured, post 'Active' to OpenHAB status item...
     if StatusItem: postUpdate(StatusItem, 'Active')
     #If configured, post lat/ling coordinates to OpenHAB...
-    if CoordinatesItem: postUpdate(CoordinatesItem, str(locationDictionary['latitude']) + ', ' + str(locationDictionary['longitude']))
+    if CoordinatesItem: postUpdate(CoordinatesItem, str(locationDictionary['latitude']) + ',' + str(locationDictionary['longitude']))
     #If configured, post accuracy to OpenHAB...
-    if AccuracyItem: postUpdate(AccuracyItem, str(locationDictionary['horizontalAccuracy']))
+    if AccuracyItem: postUpdate(AccuracyItem, str(convertDistance(locationDictionary['horizontalAccuracy'],gConfigurationOH['distanceunit'])))
     
     return float(locationDictionary['latitude']), float(locationDictionary['longitude'])
 
 
 def getDistance (lat, longitude, geoFence):
-    return convertDistance(haversine(geoFence['latitude'], lat, geoFence['longitude'], long),geoFence['distanceunit'])
+    return convertDistance(haversine(geoFence['latitude'], lat, geoFence['longitude'], long),gConfigurationOH['distanceunit'])
 
 
 def convertDistance(meters,desiredUnit):

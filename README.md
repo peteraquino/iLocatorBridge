@@ -27,8 +27,8 @@ Notes regarding configuration.ini:
     * If you do NOT want to take advantage of adaptive polling, you can simply enter 0=60 to poll every 60 seconds, or 0=300 to poll every 5 minutes, etc.
     * Polling maps are provided at the Geofence level so if you have more than one Geofence configured, the bridge will compare the polling maps for the current distance and use the lesser of all the polling intervals.  This ensures that the shortest interval is enforced.
 
-3. In addition to updating a "Presence" item in OpenHAB, the bridge now provides functionality for posting additional information back to OpenHAB including Current Distance, Current Polling Rate, Next Poll Time & Status.  All four of these are optional and do not need to be configured if you choose not to use them.
+3. In addition to updating a "Presence" item in OpenHAB, the bridge now provides functionality for posting additional information back to OpenHAB including Current Distance, Current Polling Rate, Next Poll Time, Status, Coordinates & Accuracy.  All six of these are optional and do not need to be configured if you choose not to use them.
 
     - OHItem & OHItem_Presence are configured inside the Geofence settings as these are specific to each Geofence.
-    - OHItem_PollingRate, OHItem_NextPollTime, OHItem_Status are configured inside the OpenHAB settings as these are global and apply to all Geofences.
+    - OHItem_PollingRate, OHItem_NextPollTime, OHItem_Status, OHItem_Coordinates & OHItem_Accuracy are configured inside the OpenHAB settings as these are global and apply to all Geofences.
     - OHItem_Status is designed to be an indicator that the bridge is unable to locate your phone.  If it fails to get device coordinates, it will pass the error message to the Status item.  If no error occurs, the string "Active" is passed to the Status item.
