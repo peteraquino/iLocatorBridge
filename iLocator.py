@@ -29,6 +29,9 @@ def configurationManager(configfile):
         print('Exception! Please check the log: %s' % (e, ))
         logger.error('\r\nNo configuration avaialble. Please see https://github.com/trusk89/iLocatorBridge for configuration')
         sys.exit(0)
+    
+    #get the LocationItems...
+    locationItems = parseMultipleSections(gConfig, 'LocationItems')
 
     # to stay backward compatible
     geoFences = parseMultipleSections(gConfig, 'Geofence')
@@ -50,6 +53,7 @@ def configurationManager(configfile):
         configSectionMap(gConfig, 'iCloud'),
         geoFences,
         configSectionMap(gConfig, 'OpenHab'),
+        locationItems,
         )
 
 
@@ -75,12 +79,24 @@ def configSectionMap(gConfig, section):
     return dict
 
 
-def getDeviceCoordinates(gRequester, deviceId):
+def getDeviceCoordinates(gRequester, deviceId, deviceName):
     locationDictionary = None
     
     StatusItem = gConfigurationOH.get('ohitem_status')
-    CoordinatesItem = gConfigurationOH.get('ohitem_coordinates')
-    AccuracyItem = gConfigurationOH.get('ohitem_accuracy')
+    
+    #Initialize empty location items...
+    CoordinatesItem = None
+    AccuracyItem = None
+    
+    #See if there are any configured LocationItems for this device...
+    for locationItemID, locationItem in gConfigurationLocationItems.items():
+        #If found, assign them to the initialized vars...
+        if 'deviceid'+ str(deviceName).strip() == locationItem.get('device').strip().lower():
+            CoordinatesItem = locationItem.get('ohitem_coordinates')
+            AccuracyItem = locationItem.get('ohitem_accuracy')
+            #then exit the for loop...
+            break
+
     while locationDictionary is None:
         try:
             locationDictionary = (gRequester.devices[deviceId].location())
@@ -190,9 +206,9 @@ if __name__ == "__main__":
         filename=DEFAULT_LOGFILE, level=args.verbose and logging.DEBUG or logging.INFO,
         format='%(asctime)s %(message)s')
 
-    gConfigurationiCloud, gConfigurationGeofence, gConfigurationOH = configurationManager(args.config)
+    gConfigurationiCloud, gConfigurationGeofence, gConfigurationOH, gConfigurationLocationItems = configurationManager(args.config)
     gRequester = PyiCloudService(gConfigurationiCloud['username'], gConfigurationiCloud['password'])
-
+    
     if args.listDevices:
         # make it easy to get the device ids for config
         devices = gRequester.devices
@@ -230,7 +246,7 @@ if __name__ == "__main__":
 
                 logging.debug('Device: %s(%s) -> %s' % (deviceName, variable, geoFence))
 
-                lat, long = coordCache[device] = getDeviceCoordinates(gRequester, deviceId)
+                lat, long = coordCache[device] = getDeviceCoordinates(gRequester, deviceId, deviceName)
 
                 logging.info('Device %slocated @ %s,%s' % (deviceName, lat,long))
                 
@@ -274,5 +290,5 @@ if __name__ == "__main__":
                 if variablepollingrate: postUpdate(variablepollingrate, str(minDesiredPollRate))
                 if variablenextpolltime: postUpdate(variablenextpolltime, str(NextPollTime))
                                                                                         
-                #wait until the next poll time...
-                time.sleep(int(minDesiredPollRate))
+            #wait until the next poll time...
+            time.sleep(int(minDesiredPollRate))
