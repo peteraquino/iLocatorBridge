@@ -14,6 +14,7 @@ Install:
     - iCloud credentials & device(s), under the [iCloud] section
     - Geofence settings, under the [Geofencexxx] section
     - OpenHAB credentials & item(s), under the [OpenHAB] section
+    - (Optional) Additional OpenHAB items under the [LocationItemsxxx] section
     
 3. Run python iLocator.py
 
@@ -30,5 +31,6 @@ Notes regarding configuration.ini:
 3. In addition to updating a "Presence" item in OpenHAB, the bridge now provides functionality for posting additional information back to OpenHAB including Current Distance, Current Polling Rate, Next Poll Time, Status, Coordinates & Accuracy.  All six of these are optional and do not need to be configured if you choose not to use them.
 
     - OHItem & OHItem_Presence are configured inside the Geofence settings as these are specific to each Geofence.
-    - OHItem_PollingRate, OHItem_NextPollTime, OHItem_Status, OHItem_Coordinates & OHItem_Accuracy are configured inside the OpenHAB settings as these are global and apply to all Geofences.
+    - OHItem_PollingRate, OHItem_NextPollTime & OHItem_Status are configured inside the OpenHAB settings as these are global and apply to all Geofences.
+    - OHItem_Coordinates & OHItem_Accuracy are configured inside the LocationItems settings and allow you to store the coordinates (and accuracy) of each polled device in seperate OpenHAB items.  Configure as needed.
     - OHItem_Status is designed to be an indicator that the bridge is unable to locate your phone.  If it fails to get device coordinates, it will pass the error message to the Status item.  If no error occurs, the string "Active" is passed to the Status item.
