@@ -13,10 +13,8 @@ import base64
 import logging
 import argparse
 
-#DEFAULT_CONFIG = '/usr/sbin/iLocator_configuration.ini'
-#DEFAULT_LOGFILE = '/usr/sbin/iLocatorLog.log'
-DEFAULT_CONFIG = '/Users/peteraquino/Code/iLocator/iLocator_configuration.ini'
-DEFAULT_LOGFILE = '/Users/peteraquino/Code/iLocator/iLocatorLog.log'
+DEFAULT_CONFIG = 'configuration.ini'
+DEFAULT_LOGFILE = 'iLocatorLog.log'
 
 logger = logging.getLogger('iLocator')
 
