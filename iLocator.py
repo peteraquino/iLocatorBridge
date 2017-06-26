@@ -1,17 +1,22 @@
+#!/usr/bin/env python
+
 from pyicloud import PyiCloudService
 from math import radians, cos, sin, asin, sqrt
 from datetime import datetime
 from datetime import timedelta
 import ConfigParser
 import sys
+import os
 import time
 import requests
 import base64
 import logging
 import argparse
 
-DEFAULT_CONFIG = 'configuration.ini'
-DEFAULT_LOGFILE = 'iLocatorLog.log'
+#DEFAULT_CONFIG = '/usr/sbin/iLocator_configuration.ini'
+#DEFAULT_LOGFILE = '/usr/sbin/iLocatorLog.log'
+DEFAULT_CONFIG = '/Users/peteraquino/Code/iLocator/iLocator_configuration.ini'
+DEFAULT_LOGFILE = '/Users/peteraquino/Code/iLocator/iLocatorLog.log'
 
 logger = logging.getLogger('iLocator')
 
@@ -81,6 +86,7 @@ def configSectionMap(gConfig, section):
 
 def getDeviceCoordinates(gRequester, deviceId, deviceName):
     locationDictionary = None
+    errorCount = 0
     
     StatusItem = gConfigurationOH.get('ohitem_status')
     
@@ -100,12 +106,18 @@ def getDeviceCoordinates(gRequester, deviceId, deviceName):
     while locationDictionary is None:
         try:
             locationDictionary = (gRequester.devices[deviceId].location())
-        
+    
         except Exception, e:
+            errorCount = errorCount + 1
             print('Exception! Please check the log')
             logger.error('Could not get device coordinates. Retrying!: %s' % (e, ))
             #If configured, post error to OpenHAB status item...
             if StatusItem: postUpdate(StatusItem, str(e))
+            
+            #If we've passed the RetriesBeforeRestart count, restart the script...
+            logger.info(str('Error count: %s' % (errorCount)))
+            if int(errorCount) >= int(gConfigurationOH['retriesbeforerestart']):
+                restartProgram()
             
             #If configured, send the next poll time to OpenHAB based on the config RetryInterval value...
             RetryPollTimeItem = gConfigurationOH.get('ohitem_nextpolltime')
@@ -114,6 +126,7 @@ def getDeviceCoordinates(gRequester, deviceId, deviceName):
                 postUpdate(RetryPollTimeItem, str(RetryPollTime))
 
             time.sleep(int(gConfigurationOH['retryinterval']))
+
         pass
 
     #If configured, post 'Active' to OpenHAB status item...
@@ -182,6 +195,17 @@ def postUpdate(variable, state):
         logger.error('Could not post update to OpenHab: %s' % (e, ))
 
 
+def restartProgram():
+    try:
+        logger.info('Restarting script...')
+        os.execv(__file__, sys.argv)
+
+    except Exception, e:
+        logger.error('Restart program error: %s' % (e, ))
+
+    return True
+
+
 def basic_header():
     global gConfigurationOH
 
@@ -189,17 +213,10 @@ def basic_header():
     return {"Authorization": "Basic %s" % auth,"Content-type": "text/plain"}
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description='iLocatorBridge - Bridge between iCloud location and OpenHAB')
-    parser.add_argument(
-        '-c', '--config', dest='config', default=DEFAULT_CONFIG,
-        help='Config location (default: %s)' % (DEFAULT_CONFIG, ))
-    parser.add_argument(
-        '-v', '--verbose', dest='verbose', action='store_true',
-        help='Be more verbose in the output')
-    parser.add_argument(
-        '--list-devices', dest='listDevices', action='store_true',
-        help='Do not update anything, just prints all existing device ids')
+    parser = argparse.ArgumentParser(description='iLocatorBridge - Bridge between iCloud location and OpenHAB')
+    parser.add_argument('-c', '--config', dest='config', default=DEFAULT_CONFIG,help='Config location (default: %s)' % (DEFAULT_CONFIG, ))
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',help='Be more verbose in the output')
+    parser.add_argument('--list-devices', dest='listDevices', action='store_true',help='Do not update anything, just prints all existing device ids')
 
     args = parser.parse_args()
     logging.basicConfig(
@@ -208,7 +225,7 @@ if __name__ == "__main__":
 
     gConfigurationiCloud, gConfigurationGeofence, gConfigurationOH, gConfigurationLocationItems = configurationManager(args.config)
     gRequester = PyiCloudService(gConfigurationiCloud['username'], gConfigurationiCloud['password'])
-    
+
     if args.listDevices:
         # make it easy to get the device ids for config
         devices = gRequester.devices
@@ -221,74 +238,79 @@ if __name__ == "__main__":
         logging.debug('Default Device: %s of %s' % (defaultDevice, devices))
 
         while 1:
-            minDesiredPollRate = -1
-            coordCache = {}
-            #get the OH items for current poll rate and next poll time
-            variablepollingrate = gConfigurationOH.get('ohitem_pollingrate')
-            variablenextpolltime = gConfigurationOH.get('ohitem_nextpolltime')
-            #Loop through the geofences...
-            for geoId, geoFence in gConfigurationGeofence.items():
-                # look for device overwrite on fence
-                device = geoFence.get('device') or defaultDevice
-                deviceName = device.lower() == 'deviceid' and '' or '%s ' % device[len('deviceid'):]
-                deviceId = gConfigurationiCloud[device.lower()]
+            try:
+                minDesiredPollRate = -1
+                coordCache = {}
+                #get the OH items for current poll rate and next poll time
+                variablepollingrate = gConfigurationOH.get('ohitem_pollingrate')
+                variablenextpolltime = gConfigurationOH.get('ohitem_nextpolltime')
+                #Loop through the geofences...
+                for geoId, geoFence in gConfigurationGeofence.items():
+                    # look for device overwrite on fence
+                    device = geoFence.get('device') or defaultDevice
+                    deviceName = device.lower() == 'deviceid' and '' or '%s ' % device[len('deviceid'):]
+                    deviceId = gConfigurationiCloud[device.lower()]
 
-                # look for variable overwrite on fence
-                variable = geoFence.get('ohitem_presence') or gConfigurationOH.get('ohitem')
-                variablepollingmap = geoFence.get('pollingmap')
-                variabledistance = geoFence.get('ohitem_distance')
+                    # look for variable overwrite on fence
+                    variable = geoFence.get('ohitem_presence') or gConfigurationOH.get('ohitem')
+                    variablepollingmap = geoFence.get('pollingmap')
+                    variabledistance = geoFence.get('ohitem_distance')
 
-                if not variable:
-                    msg = "No OHItem is definded not in [Geofence%s] or [OpenHab]" % (geoId)
-                    print msg
-                    logging.error(msg)
-                    continue
+                    if not variable:
+                        msg = "No OHItem is definded not in [Geofence%s] or [OpenHab]" % (geoId)
+                        print msg
+                        logging.error(msg)
+                        continue
 
-                logging.debug('Device: %s(%s) -> %s' % (deviceName, variable, geoFence))
+                    logging.debug('Device: %s(%s) -> %s' % (deviceName, variable, geoFence))
 
-                lat, long = coordCache[device] = getDeviceCoordinates(gRequester, deviceId, deviceName)
+                    lat, long = coordCache[device] = getDeviceCoordinates(gRequester, deviceId, deviceName)
 
-                logging.info('Device %slocated @ %s,%s' % (deviceName, lat,long))
-                
-                #Get the actual distance from base coordinates and post it if OHItem_Distance provided...
-                CurrentDistance = getDistance(lat, long, geoFence)
-                if variabledistance: postUpdate(variabledistance, str(CurrentDistance))
-                
-                if isInGeofence(CurrentDistance, geoFence) is True:
-                    logging.info('Device %sis in Geofence %s' % (deviceName, geoId))
-                    postUpdate(variable, 'ON')
-                else:
-                    logging.info('Device %sis outside of Geofence %s' % (deviceName, geoId))
-                    postUpdate(variable, 'OFF')
+                    logging.info('Device %slocated @ %s,%s' % (deviceName, lat,long))
+                    
+                    #Get the actual distance from base coordinates and post it if OHItem_Distance provided...
+                    CurrentDistance = getDistance(lat, long, geoFence)
+                    if variabledistance: postUpdate(variabledistance, str(CurrentDistance))
+                    
+                    if isInGeofence(CurrentDistance, geoFence) is True:
+                        logging.info('Device %sis in Geofence %s' % (deviceName, geoId))
+                        postUpdate(variable, 'ON')
+                    else:
+                        logging.info('Device %sis outside of Geofence %s' % (deviceName, geoId))
+                        postUpdate(variable, 'OFF')
 
-                #Set a default polling rate to the max in the PollingMap (in case the current distance is > the max defined distance in the polling map)
-                PollingMap = geoFence['pollingmap']
-                keyvaluepair = PollingMap.split(",")
-                last = (len(keyvaluepair) - 1)
-                PollingRate = keyvaluepair[last].split("=")[1]
-                            
-                #Loop through the polling map and find the interval that corresponds to the current distance...
-                for interval in PollingMap.split(","):
-                    dist, rate = interval.split("=")
-                    if float(CurrentDistance) <= float(dist):
-                        PollingRate = rate
-                        break
-                                                
-                logging.info('Desired polling rate for Geofence %s is %s' % (geoId, PollingRate))
-                #Is the polling rate for this geofence less than any other geofence?...
-                if minDesiredPollRate==-1:
-                    minDesiredPollRate=PollingRate
-                else:
-                    if PollingRate < minDesiredPollRate: minDesiredPollRate = PollingRate
-                                                                    
-                #Now we have the calculated poll time, based on current distance and polling map, calculate the next time we will poll
-                NextPollTime = datetime.now() + timedelta(seconds=int(minDesiredPollRate))
+                    #Set a default polling rate to the max in the PollingMap (in case the current distance is > the max defined distance in the polling map)
+                    PollingMap = geoFence['pollingmap']
+                    keyvaluepair = PollingMap.split(",")
+                    last = (len(keyvaluepair) - 1)
+                    PollingRate = keyvaluepair[last].split("=")[1]
+                                
+                    #Loop through the polling map and find the interval that corresponds to the current distance...
+                    for interval in PollingMap.split(","):
+                        dist, rate = interval.split("=")
+                        if float(CurrentDistance) <= float(dist):
+                            PollingRate = rate
+                            break
+                                                    
+                    logging.info('Desired polling rate for Geofence %s is %s' % (geoId, PollingRate))
+                    #Is the polling rate for this geofence less than any other geofence?...
+                    if minDesiredPollRate==-1:
+                        minDesiredPollRate=PollingRate
+                    else:
+                        if PollingRate < minDesiredPollRate: minDesiredPollRate = PollingRate
                                                                         
-                #log the current poll rate and next poll time and update the OpenHAB items if they were provided in the configuration file...
-                logging.info('Current Polling Rate: ' + str(minDesiredPollRate))
-                logging.info('Next Poll Time: %s' % (NextPollTime))
-                if variablepollingrate: postUpdate(variablepollingrate, str(minDesiredPollRate))
-                if variablenextpolltime: postUpdate(variablenextpolltime, str(NextPollTime))
-                                                                                        
-            #wait until the next poll time...
-            time.sleep(int(minDesiredPollRate))
+                    #Now we have the calculated poll time, based on current distance and polling map, calculate the next time we will poll
+                    NextPollTime = datetime.now() + timedelta(seconds=int(minDesiredPollRate))
+                                                                            
+                    #log the current poll rate and next poll time and update the OpenHAB items if they were provided in the configuration file...
+                    logging.info('Current Polling Rate: ' + str(minDesiredPollRate))
+                    logging.info('Next Poll Time: %s' % (NextPollTime))
+                    if variablepollingrate: postUpdate(variablepollingrate, str(minDesiredPollRate))
+                    if variablenextpolltime: postUpdate(variablenextpolltime, str(NextPollTime))
+                                                                                            
+                #wait until the next poll time...
+                time.sleep(int(minDesiredPollRate))
+
+            except Exception, e:
+                restartProgram()
+
