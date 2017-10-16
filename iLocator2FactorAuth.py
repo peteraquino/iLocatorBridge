@@ -23,7 +23,7 @@ if __name__ == "__main__":
         filename=DEFAULT_LOGFILE, level=args.verbose and logging.DEBUG or logging.INFO,
         format='%(asctime)s %(message)s')
 
-    gConfigurationiCloud, _, _ = configurationManager(args.config)
+    gConfigurationiCloud, _, _, _ = configurationManager(args.config)
     api = PyiCloudService(gConfigurationiCloud['username'], gConfigurationiCloud['password'])
 
     if api.requires_2fa:

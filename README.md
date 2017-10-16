@@ -1,6 +1,3 @@
-<span class="badge-paypal"><a href="https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=F5UAFVHBPQWXQ" title="Donate to this project using Paypal"><img src="https://img.shields.io/badge/paypal-donate-yellow.svg" alt="PayPal donate button" /></a></span>
-<span class="badge-bitcoin"><a href="http://i.imgur.com/wGR65b3.png" title="Donate once-off to this project using Bitcoin"><img src="https://img.shields.io/badge/bitcoin-donate-yellow.svg" alt="Bitcoin donate button" /></a></span>
-
 
 # iLocatorBridge
 
@@ -34,3 +31,7 @@ Notes regarding configuration.ini:
     - OHItem_PollingRate, OHItem_NextPollTime & OHItem_Status are configured inside the OpenHAB settings as these are global and apply to all Geofences.
     - OHItem_Coordinates & OHItem_Accuracy are configured inside the LocationItems settings and allow you to store the coordinates (and accuracy) of each polled device in seperate OpenHAB items.  Configure as needed.
     - OHItem_Status is designed to be an indicator that the bridge is unable to locate your phone.  If it fails to get device coordinates, it will pass the error message to the Status item.  If no error occurs, the string "Active" is passed to the Status item.
+
+4. Some errors on the iCloud side can cause the API to return no usable JSON object. The only apparent way to fix this is via a restart of the script, which forces re-authentication with the iCloud server.  The script now has the ability to restart itself.  Two things are required for this to work:
+    - Define your number of 'RetriesBeforeRestart' in the config file. A value of 0 will never attempt a restart.
+    - Ensure that your script is executable.  On a unix based system, you would use chmod like:  chmod a+x /usr/sbin/iLocator.py

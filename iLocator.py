@@ -13,8 +13,8 @@ import base64
 import logging
 import argparse
 
-DEFAULT_CONFIG = 'configuration.ini'
-DEFAULT_LOGFILE = 'iLocatorLog.log'
+#DEFAULT_CONFIG = 'configuration.ini'
+#DEFAULT_LOGFILE = 'iLocatorLog.log'
 
 logger = logging.getLogger('iLocator')
 
@@ -86,6 +86,7 @@ def getDeviceCoordinates(gRequester, deviceId, deviceName):
     locationDictionary = None
     errorCount = 0
     
+    RetriesBeforeRestart = int(gConfigurationOH['retriesbeforerestart'])
     StatusItem = gConfigurationOH.get('ohitem_status')
     
     #Initialize empty location items...
@@ -114,7 +115,7 @@ def getDeviceCoordinates(gRequester, deviceId, deviceName):
             
             #If we've passed the RetriesBeforeRestart count, restart the script...
             logger.info(str('Error count: %s' % (errorCount)))
-            if int(errorCount) >= int(gConfigurationOH['retriesbeforerestart']):
+            if RetriesBeforeRestart > 0 and int(errorCount) >= RetriesBeforeRestart :
                 restartProgram()
             
             #If configured, send the next poll time to OpenHAB based on the config RetryInterval value...
